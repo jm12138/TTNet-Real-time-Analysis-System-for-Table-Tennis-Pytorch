@@ -5,10 +5,8 @@ import warnings
 
 import numpy as np
 import matplotlib.pyplot as plt
-import torch
-import torch.distributed as dist
-import torch.multiprocessing as mp
-import torch.utils.data.distributed
+import paddle
+import paddle.distributed as dist
 from tqdm import tqdm
 
 sys.path.append('./')
@@ -35,7 +33,7 @@ def main():
 
     if configs.multiprocessing_distributed:
         configs.world_size = configs.ngpus_per_node * configs.world_size
-        mp.spawn(main_worker, nprocs=configs.ngpus_per_node, args=(configs,))
+        paddle.spawn(main_worker, nprocs=configs.ngpus_per_node, args=(configs,))
     else:
         main_worker(configs.gpu_idx, configs)
 
@@ -43,9 +41,9 @@ def main():
 def main_worker(gpu_idx, configs):
     configs.gpu_idx = gpu_idx
 
-    if configs.gpu_idx is not None:
-        print("Use GPU: {} for training".format(configs.gpu_idx))
-        configs.device = torch.device('cuda:{}'.format(configs.gpu_idx))
+    # if configs.gpu_idx is not None:
+    #     print("Use GPU: {} for training".format(configs.gpu_idx))
+    #     configs.device = torch.device('cuda:{}'.format(configs.gpu_idx))
 
     if configs.distributed:
         if configs.dist_url == "env://" and configs.rank == -1:
@@ -89,7 +87,7 @@ def test(test_loader, model, configs):
 
     # switch to evaluate mode
     model.eval()
-    with torch.no_grad():
+    with paddle.no_grad():
         start_time = time.time()
         for batch_idx, (resized_imgs, org_ball_pos_xy, global_ball_pos_xy, target_events, target_seg) in enumerate(
             tqdm(test_loader)):

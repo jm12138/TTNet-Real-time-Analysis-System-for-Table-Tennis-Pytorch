@@ -1,37 +1,26 @@
-"""
-# -*- coding: utf-8 -*-
------------------------------------------------------------------------------------
-# Author: Nguyen Mau Dung
-# DoC: 2020.05.21
-# email: nguyenmaudung93.kstn@gmail.com
-# project repo: https://github.com/maudzung/TTNet-Realtime-for-Table-Tennis-Pytorch
------------------------------------------------------------------------------------
-# Description: The TTNet model
-"""
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import paddle
+import paddle.nn as nn
+import paddle.nn.functional as F
 
 
-class ConvBlock(nn.Module):
+class ConvBlock(nn.Layer):
     def __init__(self, in_channels, out_channels):
         super(ConvBlock, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.batchnorm = nn.BatchNorm2d(out_channels)
+        self.conv = nn.Conv2D(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.batchnorm = nn.BatchNorm2D(out_channels)
         self.relu = nn.ReLU()
-        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.maxpool = nn.MaxPool2D(kernel_size=2, stride=2, padding=0)
 
     def forward(self, x):
         x = self.maxpool(self.relu(self.batchnorm(self.conv(x))))
         return x
 
 
-class ConvBlock_without_Pooling(nn.Module):
+class ConvBlock_without_Pooling(nn.Layer):
     def __init__(self, in_channels, out_channels):
         super(ConvBlock_without_Pooling, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.batchnorm = nn.BatchNorm2d(out_channels)
+        self.conv = nn.Conv2D(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.batchnorm = nn.BatchNorm2D(out_channels)
         self.relu = nn.ReLU()
 
     def forward(self, x):
@@ -39,18 +28,18 @@ class ConvBlock_without_Pooling(nn.Module):
         return x
 
 
-class DeconvBlock(nn.Module):
+class DeconvBlock(nn.Layer):
     def __init__(self, in_channels, out_channels):
         super(DeconvBlock, self).__init__()
         middle_channels = int(in_channels / 4)
-        self.conv1 = nn.Conv2d(in_channels, middle_channels, kernel_size=1, stride=1, padding=0)
-        self.batchnorm1 = nn.BatchNorm2d(middle_channels)
+        self.conv1 = nn.Conv2D(in_channels, middle_channels, kernel_size=1, stride=1, padding=0)
+        self.batchnorm1 = nn.BatchNorm2D(middle_channels)
         self.relu = nn.ReLU()
-        self.batchnorm_tconv = nn.BatchNorm2d(middle_channels)
-        self.tconv = nn.ConvTranspose2d(middle_channels, middle_channels, kernel_size=3, stride=2, padding=1,
+        self.batchnorm_tconv = nn.BatchNorm2D(middle_channels)
+        self.tconv = nn.Conv2DTranspose(middle_channels, middle_channels, kernel_size=3, stride=2, padding=1,
                                         output_padding=1)
-        self.conv2 = nn.Conv2d(middle_channels, out_channels, kernel_size=1, stride=1, padding=0)
-        self.batchnorm2 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2D(middle_channels, out_channels, kernel_size=1, stride=1, padding=0)
+        self.batchnorm2 = nn.BatchNorm2D(out_channels)
 
     def forward(self, x):
         x = self.relu(self.batchnorm1(self.conv1(x)))
@@ -60,15 +49,15 @@ class DeconvBlock(nn.Module):
         return x
 
 
-class BallDetection(nn.Module):
+class BallDetection(nn.Layer):
     def __init__(self, num_frames_sequence, dropout_p):
         super(BallDetection, self).__init__()
-        self.conv1 = nn.Conv2d(num_frames_sequence * 3, 64, kernel_size=1, stride=1, padding=0)
-        self.batchnorm = nn.BatchNorm2d(64)
+        self.conv1 = nn.Conv2D(num_frames_sequence * 3, 64, kernel_size=1, stride=1, padding=0)
+        self.batchnorm = nn.BatchNorm2D(64)
         self.relu = nn.ReLU()
         self.convblock1 = ConvBlock(in_channels=64, out_channels=64)
         self.convblock2 = ConvBlock(in_channels=64, out_channels=64)
-        self.dropout2d = nn.Dropout2d(p=dropout_p)
+        self.dropout2d = nn.Dropout2D(p=dropout_p)
         self.convblock3 = ConvBlock(in_channels=64, out_channels=128)
         self.convblock4 = ConvBlock(in_channels=128, out_channels=128)
         self.convblock5 = ConvBlock(in_channels=128, out_channels=256)
@@ -90,7 +79,7 @@ class BallDetection(nn.Module):
         features = self.convblock6(out_block5)
 
         x = self.dropout2d(features)
-        x = x.contiguous().view(x.size(0), -1)
+        x = x.reshape((x.shape[0], -1))
 
         x = self.dropout1d(self.relu(self.fc1(x)))
         x = self.dropout1d(self.relu(self.fc2(x)))
@@ -99,20 +88,20 @@ class BallDetection(nn.Module):
         return out, features, out_block2, out_block3, out_block4, out_block5
 
 
-class EventsSpotting(nn.Module):
+class EventsSpotting(nn.Layer):
     def __init__(self, dropout_p):
         super(EventsSpotting, self).__init__()
-        self.conv1 = nn.Conv2d(512, 64, kernel_size=1, stride=1, padding=0)
-        self.batchnorm = nn.BatchNorm2d(64)
+        self.conv1 = nn.Conv2D(512, 64, kernel_size=1, stride=1, padding=0)
+        self.batchnorm = nn.BatchNorm2D(64)
         self.relu = nn.ReLU()
-        self.dropout2d = nn.Dropout2d(p=dropout_p)
+        self.dropout2d = nn.Dropout2D(p=dropout_p)
         self.convblock = ConvBlock_without_Pooling(in_channels=64, out_channels=64)
         self.fc1 = nn.Linear(in_features=640, out_features=512)
         self.fc2 = nn.Linear(in_features=512, out_features=2)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, global_features, local_features):
-        input_eventspotting = torch.cat((global_features, local_features), dim=1)
+        input_eventspotting = paddle.concat((global_features, local_features), 1)
         x = self.relu(self.batchnorm(self.conv1(input_eventspotting)))
         x = self.dropout2d(x)
         x = self.convblock(x)
@@ -120,25 +109,25 @@ class EventsSpotting(nn.Module):
         x = self.convblock(x)
         x = self.dropout2d(x)
 
-        x = x.contiguous().view(x.size(0), -1)
+        x = x.reshape((x.shape[0], -1))
         x = self.relu(self.fc1(x))
         out = self.sigmoid(self.fc2(x))
 
         return out
 
 
-class Segmentation(nn.Module):
+class Segmentation(nn.Layer):
     def __init__(self):
         super(Segmentation, self).__init__()
         self.deconvblock5 = DeconvBlock(in_channels=256, out_channels=128)
         self.deconvblock4 = DeconvBlock(in_channels=128, out_channels=128)
         self.deconvblock3 = DeconvBlock(in_channels=128, out_channels=64)
         self.deconvblock2 = DeconvBlock(in_channels=64, out_channels=64)
-        self.tconv = nn.ConvTranspose2d(in_channels=64, out_channels=32, kernel_size=3, stride=2, padding=0,
+        self.tconv = nn.Conv2DTranspose(in_channels=64, out_channels=32, kernel_size=3, stride=2, padding=0,
                                         output_padding=0)
         self.relu = nn.ReLU()
-        self.conv1 = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=0)
-        self.conv2 = nn.Conv2d(32, 3, kernel_size=2, stride=1, padding=1)
+        self.conv1 = nn.Conv2D(32, 32, kernel_size=3, stride=1, padding=0)
+        self.conv2 = nn.Conv2D(32, 3, kernel_size=2, stride=1, padding=1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, out_block2, out_block3, out_block4, out_block5):
@@ -160,7 +149,7 @@ class Segmentation(nn.Module):
         return out
 
 
-class TTNet(nn.Module):
+class TTNet(nn.Layer):
     def __init__(self, dropout_p, tasks, input_size, thresh_ball_pos_mask, num_frames_sequence,
                  mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
         super(TTNet, self).__init__()
@@ -176,8 +165,8 @@ class TTNet(nn.Module):
         self.w_resize = input_size[0]
         self.h_resize = input_size[1]
         self.thresh_ball_pos_mask = thresh_ball_pos_mask
-        self.mean = torch.repeat_interleave(torch.tensor(mean).view(1, 3, 1, 1), repeats=9, dim=1)
-        self.std = torch.repeat_interleave(torch.tensor(std).view(1, 3, 1, 1), repeats=9, dim=1)
+        self.mean = paddle.repeat_interleave(paddle.to_tensor(mean).reshape((1, 3, 1, 1)), repeats=9, axis=1)
+        self.std = paddle.repeat_interleave(paddle.to_tensor(std).reshape((1, 3, 1, 1)), repeats=9, axis=1)
 
     def forward(self, resize_batch_input, org_ball_pos_xy):
         """Forward propagation
@@ -220,14 +209,10 @@ class TTNet(nn.Module):
         return pred_ball_global, pred_ball_local, pred_events, pred_seg
 
     def __normalize__(self, x):
-        if not self.mean.is_cuda:
-            self.mean = self.mean.cuda()
-            self.std = self.std.cuda()
-
         return (x / 255. - self.mean) / self.std
 
     def __get_groundtruth_local_ball_pos__(self, org_ball_pos_xy, cropped_params):
-        local_ball_pos_xy = torch.zeros_like(org_ball_pos_xy)  # no grad for torch.zeros_like output
+        local_ball_pos_xy = paddle.zeros_like(org_ball_pos_xy)  # no grad for torch.zeros_like output
 
         for idx, params in enumerate(cropped_params):
             is_ball_detected, x_min, x_max, y_min, y_max, x_pad, y_pad = params
@@ -256,7 +241,7 @@ class TTNet(nn.Module):
         """
         # Process input for local stage based on output of the global one
 
-        batch_size = resize_batch_input.size(0)
+        batch_size = resize_batch_input.shape[0]
         h_original, w_original = 1080, 1920
         h_ratio = h_original / self.h_resize
         w_ratio = w_original / self.w_resize
@@ -264,21 +249,21 @@ class TTNet(nn.Module):
         pred_ball_global_mask[pred_ball_global_mask < self.thresh_ball_pos_mask] = 0.
 
         # Crop the original images
-        input_ball_local = torch.zeros_like(resize_batch_input)  # same shape with resize_batch_input, no grad
+        input_ball_local = paddle.zeros_like(resize_batch_input)  # same shape with resize_batch_input, no grad
         original_batch_input = F.interpolate(resize_batch_input, (h_original, w_original))  # On GPU
         cropped_params = []
         for idx in range(batch_size):
             pred_ball_pos_x = pred_ball_global_mask[idx, :self.w_resize]
             pred_ball_pos_y = pred_ball_global_mask[idx, self.w_resize:]
             # If the ball is not detected, we crop the center of the images, set ball_poss to [-1, -1]
-            if (torch.sum(pred_ball_pos_x) == 0.) or (torch.sum(pred_ball_pos_y) == 0.):
+            if (paddle.sum(pred_ball_pos_x) == 0.) or (paddle.sum(pred_ball_pos_y) == 0.):
                 # Assume the ball is in the center image
                 x_center = int(self.w_resize / 2)
                 y_center = int(self.h_resize / 2)
                 is_ball_detected = False
             else:
-                x_center = torch.argmax(pred_ball_pos_x)  # Upper part
-                y_center = torch.argmax(pred_ball_pos_y)  # Lower part
+                x_center = paddle.argmax(pred_ball_pos_x)  # Upper part
+                y_center = paddle.argmax(pred_ball_pos_y)  # Lower part
                 is_ball_detected = True
 
             # Adjust ball position to the original size
@@ -316,16 +301,16 @@ class TTNet(nn.Module):
 if __name__ == '__main__':
     tasks = ['global', 'local', 'event', 'seg']
     ttnet = TTNet(dropout_p=0.5, tasks=tasks, input_size=(320, 128), thresh_ball_pos_mask=0.01,
-                  num_frames_sequence=9).cuda()
-    resize_batch_input = torch.rand((10, 27, 128, 320)).cuda()
-    org_ball_pos_xy = torch.rand((10, 2)).cuda()
+                  num_frames_sequence=9)
+    resize_batch_input = paddle.rand((10, 27, 128, 320))
+    org_ball_pos_xy = paddle.rand((10, 2))
     pred_ball_global, pred_ball_local, pred_events, pred_seg, local_ball_pos_xy = ttnet(resize_batch_input,
                                                                                         org_ball_pos_xy)
     if pred_ball_global is not None:
-        print('pred_ball_global: {}'.format(pred_ball_global.size()))
+        print('pred_ball_global: {}'.format(pred_ball_global.shape))
     if pred_ball_local is not None:
-        print('pred_ball_local: {}'.format(pred_ball_local.size()))
+        print('pred_ball_local: {}'.format(pred_ball_local.shape))
     if pred_events is not None:
-        print('pred_events: {}'.format(pred_events.size()))
+        print('pred_events: {}'.format(pred_events.shape))
     if pred_seg is not None:
-        print('pred_segmentation: {}'.format(pred_seg.size()))
+        print('pred_segmentation: {}'.format(pred_seg.shape))

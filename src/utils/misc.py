@@ -1,5 +1,5 @@
 import os
-import torch
+import paddle
 import time
 
 def make_folder(folder_name):
@@ -56,5 +56,5 @@ class ProgressMeter(object):
 
 
 def time_synchronized():
-    torch.cuda.synchronize() if torch.cuda.is_available() else None
+    paddle.device.cuda.synchronize() if paddle.device.is_compiled_with_cuda() else None
     return time.time()

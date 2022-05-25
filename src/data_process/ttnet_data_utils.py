@@ -16,7 +16,7 @@ from collections import Counter
 
 import cv2
 from sklearn.model_selection import train_test_split
-import torch
+import paddle
 import numpy as np
 
 sys.path.append('../')
@@ -30,7 +30,7 @@ def load_raw_img(img_path):
 
 def gaussian_1d(pos, muy, sigma):
     """Create 1D Gaussian distribution based on ball position (muy), and std (sigma)"""
-    target = torch.exp(- (((pos - muy) / sigma) ** 2) / 2)
+    target = paddle.exp(- (((pos - muy) / sigma) ** 2) / 2)
     return target
 
 
@@ -46,14 +46,14 @@ def create_target_ball(ball_position_xy, sigma, w, h, thresh_mask, device):
     :return:
     """
     w, h = int(w), int(h)
-    target_ball_position = torch.zeros((w + h,), device=device)
+    target_ball_position = paddle.zeros((w + h,), device=device)
     # Only do the next step if the ball is existed
     if (w > ball_position_xy[0] > 0) and (h > ball_position_xy[1] > 0):
         # For x
-        x_pos = torch.arange(0, w, device=device)
+        x_pos = paddle.arange(0, w, device=device)
         target_ball_position[:w] = gaussian_1d(x_pos, ball_position_xy[0], sigma=sigma)
         # For y
-        y_pos = torch.arange(0, h, device=device)
+        y_pos = paddle.arange(0, h, device=device)
         target_ball_position[w:] = gaussian_1d(y_pos, ball_position_xy[1], sigma=sigma)
 
         target_ball_position[target_ball_position < thresh_mask] = 0.
@@ -166,7 +166,7 @@ if __name__ == '__main__':
         print('Counter val_events_labels: {}'.format(Counter(val_events_labels)))
     event_name = 'net'
     event_class = configs.events_dict[event_name]
-    configs.device = torch.device('cpu')
+    configs.device = paddle.device('cpu')
     ball_position_xy = np.array([100, 50])
     target_ball_position = create_target_ball(ball_position_xy, sigma=0.5, w=320, h=128, thresh_mask=0.01,
                                               device=configs.device)

@@ -14,7 +14,7 @@ import os
 import numpy as np
 import time
 
-from torch.utils.data import Dataset
+from paddle.io import Dataset
 from turbojpeg import TurboJPEG
 import cv2
 

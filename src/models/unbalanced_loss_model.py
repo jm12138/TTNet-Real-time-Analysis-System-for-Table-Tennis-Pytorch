@@ -11,8 +11,8 @@
 
 import sys
 
-import torch
-import torch.nn as nn
+import paddle
+import paddle.nn as nn
 
 sys.path.append('../')
 
@@ -20,11 +20,11 @@ from losses.losses import Ball_Detection_Loss, Events_Spotting_Loss, Segmentatio
 from data_process.ttnet_data_utils import create_target_ball
 
 
-class Unbalance_Loss_Model(nn.Module):
+class Unbalance_Loss_Model(nn.Layer):
     def __init__(self, model, tasks_loss_weight, weights_events, input_size, sigma, thresh_ball_pos_mask, device):
         super(Unbalance_Loss_Model, self).__init__()
         self.model = model
-        self.tasks_loss_weight = torch.tensor(tasks_loss_weight)
+        self.tasks_loss_weight = paddle.to_tensor(tasks_loss_weight)
         self.tasks_loss_weight = self.tasks_loss_weight / self.tasks_loss_weight.sum()
         self.num_events = len(tasks_loss_weight)
         self.w = input_size[0]
@@ -41,7 +41,7 @@ class Unbalance_Loss_Model(nn.Module):
                                                                                                  org_ball_pos_xy)
         # Create target for events spotting and ball position (local and global)
         batch_size = pred_ball_global.size(0)
-        target_ball_global = torch.zeros_like(pred_ball_global)
+        target_ball_global = paddle.zeros_like(pred_ball_global)
         task_idx = 0
         for sample_idx in range(batch_size):
             target_ball_global[sample_idx] = create_target_ball(global_ball_pos_xy[sample_idx], sigma=self.sigma,
@@ -53,7 +53,7 @@ class Unbalance_Loss_Model(nn.Module):
 
         if pred_ball_local is not None:
             task_idx += 1
-            target_ball_local = torch.zeros_like(pred_ball_local)
+            target_ball_local = paddle.zeros_like(pred_ball_local)
             for sample_idx in range(batch_size):
                 target_ball_local[sample_idx] = create_target_ball(local_ball_pos_xy[sample_idx], sigma=self.sigma,
                                                                    w=self.w, h=self.h,

@@ -11,8 +11,8 @@
 
 import sys
 
-import torch
-from torch.utils.data import DataLoader
+import paddle
+from paddle.io import DataLoader, DistributedBatchSampler
 
 sys.path.append('../')
 
@@ -35,7 +35,7 @@ def create_train_val_dataloader(configs):
                                   num_samples=configs.num_samples)
     train_sampler = None
     if configs.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        train_sampler = DistributedBatchSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, batch_size=configs.batch_size, shuffle=(train_sampler is None),
                                   pin_memory=configs.pin_memory, num_workers=configs.num_workers, sampler=train_sampler)
 
@@ -46,7 +46,7 @@ def create_train_val_dataloader(configs):
         val_dataset = TTNet_Dataset(val_events_infor, configs.org_size, configs.input_size, transform=val_transform,
                                     num_samples=configs.num_samples)
         if configs.distributed:
-            val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False)
+            val_sampler = DistributedBatchSampler(val_dataset, shuffle=False)
         val_dataloader = DataLoader(val_dataset, batch_size=configs.batch_size, shuffle=False,
                                     pin_memory=configs.pin_memory, num_workers=configs.num_workers, sampler=val_sampler)
 
@@ -63,7 +63,7 @@ def create_test_dataloader(configs):
                                  num_samples=configs.num_samples)
     test_sampler = None
     if configs.distributed:
-        test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
+        test_sampler = DistributedBatchSampler(test_dataset)
     test_dataloader = DataLoader(test_dataset, batch_size=configs.batch_size, shuffle=False,
                                  pin_memory=configs.pin_memory, num_workers=configs.num_workers, sampler=test_sampler)
 

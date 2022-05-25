@@ -5,11 +5,9 @@ import random
 import os
 import warnings
 
-import torch
-from torch.utils.tensorboard import SummaryWriter
-import torch.distributed as dist
-import torch.multiprocessing as mp
-import torch.utils.data.distributed
+import paddle
+from visualdl import LogWriter
+import paddle.distributed as dist
 from tqdm import tqdm
 
 sys.path.append('./')
@@ -31,9 +29,7 @@ def main():
     if configs.seed is not None:
         random.seed(configs.seed)
         np.random.seed(configs.seed)
-        torch.manual_seed(configs.seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+        paddle.seed(configs.seed)
 
     if configs.gpu_idx is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
@@ -46,7 +42,7 @@ def main():
 
     if configs.multiprocessing_distributed:
         configs.world_size = configs.ngpus_per_node * configs.world_size
-        mp.spawn(main_worker, nprocs=configs.ngpus_per_node, args=(configs,))
+        dist.spawn(main_worker, nprocs=configs.ngpus_per_node, args=(configs,))
     else:
         main_worker(configs.gpu_idx, configs)
 
@@ -54,9 +50,9 @@ def main():
 def main_worker(gpu_idx, configs):
     configs.gpu_idx = gpu_idx
 
-    if configs.gpu_idx is not None:
-        print("Use GPU: {} for training".format(configs.gpu_idx))
-        configs.device = torch.device('cuda:{}'.format(configs.gpu_idx))
+    # if configs.gpu_idx is not None:
+    #     print("Use GPU: {} for training".format(configs.gpu_idx))
+    #     configs.device = torch.device('cuda:{}'.format(configs.gpu_idx))
 
     if configs.distributed:
         if configs.dist_url == "env://" and configs.rank == -1:
@@ -76,7 +72,7 @@ def main_worker(gpu_idx, configs):
         logger = Logger(configs.logs_dir, configs.saved_fn)
         logger.info('>>> Created a new logger')
         logger.info('>>> configs: {}'.format(configs))
-        tb_writer = SummaryWriter(log_dir=os.path.join(configs.logs_dir, 'tensorboard'))
+        tb_writer = LogWriter(logdir=os.path.join(configs.logs_dir, 'visualdl'))
     else:
         logger = None
         tb_writer = None
@@ -217,7 +213,7 @@ def train_one_epoch(train_loader, model, optimizer, epoch, configs, logger):
             resized_imgs, org_ball_pos_xy, global_ball_pos_xy, target_events, target_seg)
         # For torch.nn.DataParallel case
         if (not configs.distributed) and (configs.gpu_idx is None):
-            total_loss = torch.mean(total_loss)
+            total_loss = paddle.mean(total_loss)
 
         # zero the parameter gradients
         optimizer.zero_grad()
@@ -231,7 +227,7 @@ def train_one_epoch(train_loader, model, optimizer, epoch, configs, logger):
             reduced_loss = total_loss.data
         losses.update(to_python_float(reduced_loss), batch_size)
         # measure elapsed time
-        torch.cuda.synchronize()
+        paddle.device.cuda.synchronize()
         batch_time.update(time.time() - start_time)
 
         # Log message
@@ -253,7 +249,7 @@ def evaluate_one_epoch(val_loader, model, epoch, configs, logger):
                              prefix="Evaluate - Epoch: [{}/{}]".format(epoch, configs.num_epochs))
     # switch to evaluate mode
     model.eval()
-    with torch.no_grad():
+    with paddle.no_grad():
         start_time = time.time()
         for batch_idx, (resized_imgs, org_ball_pos_xy, global_ball_pos_xy, target_events, target_seg) in enumerate(
                 tqdm(val_loader)):
@@ -266,7 +262,7 @@ def evaluate_one_epoch(val_loader, model, epoch, configs, logger):
 
             # For torch.nn.DataParallel case
             if (not configs.distributed) and (configs.gpu_idx is None):
-                total_loss = torch.mean(total_loss)
+                total_loss = paddle.mean(total_loss)
 
             if configs.distributed:
                 reduced_loss = reduce_tensor(total_loss.data, configs.world_size)
@@ -274,7 +270,7 @@ def evaluate_one_epoch(val_loader, model, epoch, configs, logger):
                 reduced_loss = total_loss.data
             losses.update(to_python_float(reduced_loss), batch_size)
             # measure elapsed time
-            torch.cuda.synchronize()
+            paddle.device.cuda.synchronize()
             batch_time.update(time.time() - start_time)
 
             # Log message

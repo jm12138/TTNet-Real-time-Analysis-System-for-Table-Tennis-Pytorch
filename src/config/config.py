@@ -9,7 +9,7 @@
 # Description: The configurations of the project will be defined here
 """
 
-import torch
+import paddle
 import os
 import datetime
 import argparse
@@ -181,8 +181,8 @@ def parse_configs():
     ####################################################################
     ############## Hardware configurations ############################
     ####################################################################
-    configs.device = torch.device('cpu' if configs.no_cuda else 'cuda')
-    configs.ngpus_per_node = torch.cuda.device_count()
+    configs.device = paddle.set_device('cpu' if configs.no_cuda else 'cuda')
+    configs.ngpus_per_node = paddle.device.cuda.device_count()
 
     configs.pin_memory = True
 

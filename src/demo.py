@@ -15,7 +15,7 @@ from collections import deque
 
 import cv2
 import numpy as np
-import torch
+import paddle
 
 sys.path.append('./')
 
@@ -35,7 +35,7 @@ def demo(configs):
         if not os.path.isdir(configs.frame_dir):
             os.makedirs(configs.frame_dir)
 
-    configs.device = torch.device('cuda:{}'.format(configs.gpu_idx))
+    # configs.device = torch.device('cuda:{}'.format(configs.gpu_idx))
 
     # model
     model = create_model(configs)
@@ -52,12 +52,12 @@ def demo(configs):
     w_resize, h_resize = 320, 128
     w_ratio = w_original / w_resize
     h_ratio = h_original / h_resize
-    with torch.no_grad():
+    with paddle.no_grad():
         for count, resized_imgs in video_loader:
             # take the middle one
             img = cv2.resize(resized_imgs[3 * middle_idx: 3 * (middle_idx + 1)].transpose(1, 2, 0), (w_original, h_original))
             # Expand the first dim
-            resized_imgs = torch.from_numpy(resized_imgs).to(configs.device, non_blocking=True).float().unsqueeze(0)
+            resized_imgs = paddle.to_tensor(resized_imgs).to(configs.device, non_blocking=True).float().unsqueeze(0)
             t1 = time_synchronized()
             pred_ball_global, pred_ball_local, pred_events, pred_seg = model.run_demo(resized_imgs)
             t2 = time_synchronized()
